@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        div {
+            text-align: center;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+
+        input[type="text"] {
+            padding: 5px;
+            margin-right: 5px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }
+
+        button {
+            border: none;
+            border-radius: 5px;
+            padding: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+            color: #fff;
+        }
+
+        /* Default button color */
+        button:not(.save-btn, .undo-btn, .redo-btn, .clear-btn) {
+            background-color: #2c24be; /* Blue for all other buttons */
+        }
+
+        /* Button-specific colors */
+        .save-btn {
+            background-color: #45f957; /* Pink for Save Image */
+        }
+
+        .undo-btn {
+            background-color: #607D8B; /* Grey for Undo */
+        }
+
+        .redo-btn {
+            background-color: #795548; /* Brown for Redo */
+        }
+
+        .clear-btn {
+            background-color: #F44336; /* Red for Clear Canvas */
+        }
+
+        button:hover {
+            opacity: 0.8;
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border: 1px solid #d3d3d3;
+        }
+
+        .color-picker {
+            margin-top: 10px;
+        }
+
+        .line-width {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Canvas Primitives</h1>
+
+    <div style="text-align:center;">
+        x1:<input type="text" id="x1" size="4"> &emsp;&emsp;
+        y1:<input type="text" id="y1" size="4"> &emsp;&emsp;
+        x2:<input type="text" id="x2" size="4"> &emsp;&emsp;
+        y2:<input type="text" id="y2" size="4"> &emsp;&emsp;
+
+        <button onclick="MidpointLine()">Line</button>
+
+        <br><br>
+        cx:<input type="text" id="cx1" size="4"> &emsp;&emsp;
+        cy:<input type="text" id="cy1" size="4"> &emsp;&emsp;
+        r:<input type="text" id="r" size="4"> &emsp;&emsp;
+        <button onclick="MidpointCircle()">Circle</button> &emsp;&emsp;
+
+        <br><br>
+        cx:<input type="text" id="cx2" size="4"> &emsp;&emsp;
+        cy:<input type="text" id="cy2" size="4"> &emsp;&emsp;
+        a:<input type="text" id="a" size="4"> &emsp;&emsp;
+        b:<input type="text" id="b" size="4"> &emsp;&emsp;
+        <button onclick="MidpointEllipse()">Ellipse</button>
+
+        <br><br>
+        px1:<input type="text" id="px1" size="4"> &emsp;&emsp;
+        py1:<input type="text" id="py1" size="4"> &emsp;&emsp;
+        px2:<input type="text" id="px2" size="4"> &emsp;&emsp;
+        py2:<input type="text" id="py2" size="4"> &emsp;&emsp;
+        rx1:<input type="text" id="rx1" size="4"> &emsp;&emsp;
+        ry1:<input type="text" id="ry1" size="4"> &emsp;&emsp;
+        rx2:<input type="text" id="rx2" size="4"> &emsp;&emsp;
+        ry2:<input type="text" id="ry2" size="4"> &emsp;&emsp;
+
+        <button onclick="bezier()">BezierCurve</button> &emsp;&emsp;
+
+        <br><br>
+
+        <!-- New Line for Color Picker -->
+        <div class="color-picker">
+            Color: <input type="color" id="colorPicker" value="#000000">
+            &nbsp;&nbsp;&nbsp;
+            Line Width: <input type="number" id="lineWidth" value="1" min="1" max="10">
+            &nbsp;&nbsp;&nbsp;
+            <button onclick="saveCanvas()" class="save-btn">Save Image</button>
+            &nbsp;&nbsp;&nbsp;
+            <button onclick="undo()" class="undo-btn">Undo</button>
+            &nbsp;&nbsp;&nbsp;
+            <button onclick="redo()" class="redo-btn">Redo</button>
+            &nbsp;&nbsp;&nbsp;
+            <button onclick="clearCanvas()" class="clear-btn">Clear Canvas</button>
+        </div>
+    </div>
+
+    <br>
+
+    <div style="text-align:center;">
+        <canvas id="myCanvas" width="600" height="600" style="border:1px solid #242323;">
+            Your browser does not support the HTML5 canvas tag.
+        </canvas>
+    </div>
+
+    <script>
+        var c = document.getElementById("myCanvas");
+        var ctx = c.getContext("2d");
+
+        // Create an array to store the canvas states for undo/redo functionality
+        var states = [];
+        var currentStateIndex = -1;
+
+        // Create a blank state to start
+        function initializeCanvas() {
+            ctx.fillStyle = "white";
+            ctx.fillRect(0, 0, c.width, c.height);
+            saveState();
+        }
+
+        // Function to save current state
+        function saveState() {
+            // If we're not at the end of the states array, remove any future states
+            if (currentStateIndex < states.length - 1) {
+                states = states.slice(0, currentStateIndex + 1);
+            }
+            
+            // Save current state
+            states.push(c.toDataURL());
+            currentStateIndex = states.length - 1;
+        }
+
+        // Undo function
+        function undo() {
+            if (currentStateIndex > 0) {
+                currentStateIndex--;
+                restoreState(currentStateIndex);
+            }
+        }
+
+        // Redo function
+        function redo() {
+            if (currentStateIndex < states.length - 1) {
+                currentStateIndex++;
+                restoreState(currentStateIndex);
+            }
+        }
+
+        // Restore a specific state
+        function restoreState(stateIndex) {
+            var img = new Image();
+            img.src = states[stateIndex];
+            img.onload = function() {
+                ctx.clearRect(0, 0, c.width, c.height);
+                ctx.drawImage(img, 0, 0);
+            };
+        }
+
+        // Apply color and line width
+        function applyStyle() {
+            ctx.strokeStyle = document.getElementById("colorPicker").value;
+            ctx.lineWidth = document.getElementById("lineWidth").value;
+        }
+
+        // Clear canvas function
+        function clearCanvas() {
+            ctx.clearRect(0, 0, c.width, c.height);
+            saveState();
+        }
+
+        // Drawing functions
+        function MidpointLine() {
+            applyStyle();
+            let X1 = parseFloat(document.getElementById("x1").value);
+            let Y1 = parseFloat(document.getElementById("y1").value);
+            let X2 = parseFloat(document.getElementById("x2").value);
+            let Y2 = parseFloat(document.getElementById("y2").value);
+
+            ctx.beginPath();
+            ctx.moveTo(X1 + 300, 600 - (Y1 + 300));
+            ctx.lineTo(X2 + 300, 600 - (Y2 + 300));
+            ctx.stroke();
+            
+            // Save state after drawing
+            saveState();
+        }
+
+        function MidpointCircle() {
+            applyStyle();
+            let r = parseFloat(document.getElementById("r").value);
+            let cx = parseFloat(document.getElementById("cx1").value);
+            let cy = parseFloat(document.getElementById("cy1").value);
+
+            ctx.beginPath();
+            ctx.arc(cx + 300, 600 - (cy + 300), r, 0, 2 * Math.PI);
+            ctx.stroke();
+            
+            // Save state after drawing
+            saveState();
+        }
+
+        function MidpointEllipse() {
+            applyStyle();
+            let a = parseFloat(document.getElementById("a").value);
+            let b = parseFloat(document.getElementById("b").value);
+            let cx = parseFloat(document.getElementById("cx2").value);
+            let cy = parseFloat(document.getElementById("cy2").value);
+
+            ctx.beginPath();
+            ctx.ellipse(cx + 300, 600 - (cy + 300), a, b, 0, 0, 2 * Math.PI);
+            ctx.stroke();
+            
+            // Save state after drawing
+            saveState();
+        }
+
+        function bezier() {
+            applyStyle();
+            let x1 = parseFloat(document.getElementById("px1").value);
+            let y1 = parseFloat(document.getElementById("py1").value);
+            let x2 = parseFloat(document.getElementById("rx1").value);
+            let y2 = parseFloat(document.getElementById("ry1").value);
+            let x3 = parseFloat(document.getElementById("rx2").value);
+            let y3 = parseFloat(document.getElementById("ry2").value);
+            let x4 = parseFloat(document.getElementById("px2").value);
+            let y4 = parseFloat(document.getElementById("py2").value);
+
+            ctx.beginPath();
+            ctx.moveTo(x1 + 300, 600 - (y1 + 300));
+            ctx.bezierCurveTo(
+                x2 + 300, 600 - (y2 + 300),
+                x3 + 300, 600 - (y3 + 300),
+                x4 + 300, 600 - (y4 + 300)
+            );
+            ctx.stroke();
+            
+            // Save state after drawing
+            saveState();
+        }
+
+        // Save canvas as an image with a white background
+        function saveCanvas() {
+            let tempCanvas = document.createElement('canvas');
+            let tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = c.width;
+            tempCanvas.height = c.height;
+
+            // Fill the temporary canvas with white
+            tempCtx.fillStyle = 'white';
+            tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+            // Draw the original canvas content on top of the white background
+            tempCtx.drawImage(c, 0, 0);
+
+            // Save the temporary canvas as an image
+            let link = document.createElement('a');
+            link.download = 'canvas_image.png';
+            link.href = tempCanvas.toDataURL();
+            link.click();
+        }
+
+        // Initialize the canvas with a blank state
+        initializeCanvas();
+    </script>
+
+</body>
+
+</html>

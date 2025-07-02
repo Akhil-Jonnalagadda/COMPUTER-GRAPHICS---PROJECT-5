@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        div {
+            text-align: center;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+
+        input[type="text"], input[type="number"] {
+            padding: 5px;
+            margin-right: 5px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }
+
+        button {
+            border: none;
+            border-radius: 5px;
+            padding: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+            color: #fff;
+        }
+
+        button:not(.save-btn, .undo-btn, .redo-btn, .clear-btn) {
+            background-color: #2c24be;
+        }
+
+        .save-btn { background-color: #0b97f4; }
+        .undo-btn { background-color: #607D8B; }
+        .redo-btn { background-color: #795548; }
+        .clear-btn { background-color: #F44336; }
+
+        button:hover { opacity: 0.8; }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border: 1px solid #080808;
+            background-color: white;
+        }
+    </style>
+</head>
+<body>
+
+<div style="text-align:center;">
+    <h1>Basic 2D Shapes and Curves</h1>
+    <!-- Input fields and buttons go here -->
+    x1:<input type="text" id="x1" size="4"> &emsp;&emsp;
+    y1:<input type="text" id="y1" size="4"> &emsp;&emsp;
+    x2:<input type="text" id="x2" size="4"> &emsp;&emsp;
+    y2:<input type="text" id="y2" size="4"> &emsp;&emsp;
+    <button onclick="DDA()">DDALine</button> &emsp;&emsp;
+    <button onclick="MidpointLine()">MidpointLine</button><br><br>
+
+    cx:<input type="text" id="cx1" size="4"> &emsp;&emsp;
+    cy:<input type="text" id="cy1" size="4"> &emsp;&emsp;
+    r:<input type="text" id="r" size="4"> &emsp;&emsp;
+    <button onclick="MidpointCircle()">MidpointCircle</button><br><br>
+
+    cx:<input type="text" id="cx2" size="4"> &emsp;&emsp;
+    cy:<input type="text" id="cy2" size="4"> &emsp;&emsp;
+    a:<input type="text" id="a" size="4"> &emsp;&emsp;
+    b:<input type="text" id="b" size="4"> &emsp;&emsp;
+    <button onclick="MidpointEllipse()">MidpointEllipse</button><br><br>
+
+    px1:<input type="text" id="px1" size="4"> &emsp;&emsp;
+    py1:<input type="text" id="py1" size="4"> &emsp;&emsp;
+    px2:<input type="text" id="px2" size="4"> &emsp;&emsp;
+    py2:<input type="text" id="py2" size="4"> &emsp;&emsp;
+    rx1:<input type="text" id="rx1" size="4"> &emsp;&emsp;
+    ry1:<input type="text" id="ry1" size="4"> &emsp;&emsp;
+    rx2:<input type="text" id="rx2" size="4"> &emsp;&emsp;
+    ry2:<input type="text" id="ry2" size="4"> &emsp;&emsp;
+
+    <button onclick="bezier()">BezierCurve</button> &emsp;&emsp;
+    <button onclick="spline()">BSpline</button> &emsp;&emsp;
+    <button onclick="hermite()">HermiteCurve</button><br><br>
+
+    Color: <input type="color" id="colorPicker" value="#000000">
+    &nbsp;&nbsp;&nbsp;
+    Line Width: <input type="number" id="lineWidth" value="1" min="1" max="10">
+    &nbsp;&nbsp;&nbsp;
+    <button onclick="saveCanvas()" class="save-btn">Save Image</button>
+    &nbsp;&nbsp;&nbsp;
+    <button onclick="undo()" class="undo-btn">Undo</button>
+    &nbsp;&nbsp;&nbsp;
+    <button onclick="redo()" class="redo-btn">Redo</button>
+    &nbsp;&nbsp;&nbsp;
+    <button onclick="clearCanvas()" class="clear-btn">Clear Canvas</button>
+</div>
+
+<canvas id="myCanvas" width="600" height="600"></canvas>
+
+<script>
+    const canvas = document.getElementById('myCanvas');
+    const ctx = canvas.getContext('2d');
+    let history = [], currentStateIndex = -1;
+
+    function saveState() {
+        history = history.slice(0, currentStateIndex + 1);
+        history.push(canvas.toDataURL());
+        currentStateIndex++;
+    }
+
+    function loadFromHistory(dataUrl) {
+        const img = new Image();
+        img.onload = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+        };
+        img.src = dataUrl;
+    }
+
+    function undo() {
+        if (currentStateIndex > 0) {
+            currentStateIndex--;
+            loadFromHistory(history[currentStateIndex]);
+        }
+    }
+
+    function redo() {
+        if (currentStateIndex < history.length - 1) {
+            currentStateIndex++;
+            loadFromHistory(history[currentStateIndex]);
+        }
+    }
+
+    function clearCanvas() {
+        saveState();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        saveState();
+    }
+
+    function saveCanvas() {
+        const link = document.createElement('a');
+        link.download = 'canvas_image.png';
+        link.href = canvas.toDataURL();
+        link.click();
+    }
+
+    function applyStyle() {
+        ctx.strokeStyle = document.getElementById("colorPicker").value;
+        ctx.lineWidth = document.getElementById("lineWidth").value;
+    }
+
+    function drawWrapper(drawFunc) {
+        applyStyle();
+        drawFunc();
+        saveState();
+    }
+
+    function DDA() {
+        drawWrapper(() => {
+            let x0 = +document.getElementById("x1").value;
+            let y0 = +document.getElementById("y1").value;
+            let x1 = +document.getElementById("x2").value;
+            let y1 = +document.getElementById("y2").value;
+            let dx = x1 - x0, dy = y1 - y0;
+            let steps = Math.max(Math.abs(dx), Math.abs(dy));
+            let xInc = dx / steps, yInc = dy / steps;
+            let x = x0, y = y0;
+
+            ctx.beginPath();
+            ctx.moveTo(x + 300, 600 - (y + 300));
+            for (let i = 0; i <= steps; i++) {
+                ctx.lineTo(x + 300, 600 - (y + 300));
+                x += xInc;
+                y += yInc;
+            }
+            ctx.stroke();
+        });
+    }
+
+    function MidpointLine() {
+        drawWrapper(() => {
+            let x1 = +document.getElementById("x1").value;
+            let y1 = +document.getElementById("y1").value;
+            let x2 = +document.getElementById("x2").value;
+            let y2 = +document.getElementById("y2").value;
+            let dx = x2 - x1, dy = y2 - y1;
+            let d = 2 * dy - dx;
+            let x = x1, y = y1;
+
+            ctx.beginPath();
+            ctx.moveTo(x + 300, 600 - (y + 300));
+            while (x < x2) {
+                x++;
+                if (d < 0) d += 2 * dy;
+                else { d += 2 * (dy - dx); y++; }
+                ctx.lineTo(x + 300, 600 - (y + 300));
+            }
+            ctx.stroke();
+        });
+    }
+
+    function MidpointCircle() {
+        drawWrapper(() => {
+            let r = +document.getElementById("r").value;
+            let cx = +document.getElementById("cx1").value;
+            let cy = +document.getElementById("cy1").value;
+
+            ctx.beginPath();
+            for (let angle = 0; angle <= 360; angle += 0.5) {
+                let rad = angle * Math.PI / 180;
+                let x = cx + r * Math.cos(rad);
+                let y = cy + r * Math.sin(rad);
+                ctx.lineTo(x + 300, 600 - (y + 300));
+            }
+            ctx.stroke();
+        });
+    }
+
+    function MidpointEllipse() {
+        drawWrapper(() => {
+            let a = +document.getElementById("a").value;
+            let b = +document.getElementById("b").value;
+            let cx = +document.getElementById("cx2").value;
+            let cy = +document.getElementById("cy2").value;
+
+            ctx.beginPath();
+            for (let angle = 0; angle <= 360; angle += 0.5) {
+                let rad = angle * Math.PI / 180;
+                let x = cx + a * Math.cos(rad);
+                let y = cy + b * Math.sin(rad);
+                ctx.lineTo(x + 300, 600 - (y + 300));
+            }
+            ctx.stroke();
+        });
+    }
+
+    function bezier() {
+        drawWrapper(() => {
+            let x1 = +document.getElementById("px1").value;
+            let y1 = +document.getElementById("py1").value;
+            let x2 = +document.getElementById("rx1").value;
+            let y2 = +document.getElementById("ry1").value;
+            let x3 = +document.getElementById("rx2").value;
+            let y3 = +document.getElementById("ry2").value;
+            let x4 = +document.getElementById("px2").value;
+            let y4 = +document.getElementById("py2").value;
+
+            let n = 1000;
+            ctx.beginPath();
+            for (let t = 0; t <= 1; t += 1 / n) {
+                let x = Math.pow(1 - t, 3) * x1 +
+                        3 * t * Math.pow(1 - t, 2) * x2 +
+                        3 * Math.pow(t, 2) * (1 - t) * x3 +
+                        Math.pow(t, 3) * x4;
+                let y = Math.pow(1 - t, 3) * y1 +
+                        3 * t * Math.pow(1 - t, 2) * y2 +
+                        3 * Math.pow(t, 2) * (1 - t) * y3 +
+                        Math.pow(t, 3) * y4;
+                ctx.lineTo(x + 300, 600 - (y + 300));
+            }
+            ctx.stroke();
+        });
+    }
+
+    function spline() {
+        drawWrapper(() => {
+            let x1 = +document.getElementById("px1").value;
+            let y1 = +document.getElementById("py1").value;
+            let x2 = +document.getElementById("rx1").value;
+            let y2 = +document.getElementById("ry1").value;
+            let x3 = +document.getElementById("rx2").value;
+            let y3 = +document.getElementById("ry2").value;
+            let x4 = +document.getElementById("px2").value;
+            let y4 = +document.getElementById("py2").value;
+
+            let n = 1000;
+            ctx.beginPath();
+            for (let t = 0; t <= 1; t += 1 / n) {
+                let t2 = t * t, t3 = t2 * t;
+                let x = ((1 - t3) / 6) * x1 +
+                        ((3 * t3 - 6 * t2 + 4) / 6) * x2 +
+                        ((-3 * t3 + 3 * t2 + 3 * t + 1) / 6) * x3 +
+                        (t3 / 6) * x4;
+                let y = ((1 - t3) / 6) * y1 +
+                        ((3 * t3 - 6 * t2 + 4) / 6) * y2 +
+                        ((-3 * t3 + 3 * t2 + 3 * t + 1) / 6) * y3 +
+                        (t3 / 6) * y4;
+                ctx.lineTo(x + 300, 600 - (y + 300));
+            }
+            ctx.stroke();
+        });
+    }
+
+    function hermite() {
+        drawWrapper(() => {
+            let x1 = +document.getElementById("px1").value;
+            let y1 = +document.getElementById("py1").value;
+            let x2 = +document.getElementById("rx1").value;
+            let y2 = +document.getElementById("ry1").value;
+            let x3 = +document.getElementById("rx2").value;
+            let y3 = +document.getElementById("ry2").value;
+            let x4 = +document.getElementById("px2").value;
+            let y4 = +document.getElementById("py2").value;
+
+            let n = 1000;
+            ctx.beginPath();
+            for (let t = 0; t <= 1; t += 1 / n) {
+                let t2 = t * t, t3 = t2 * t;
+                let h1 = 2 * t3 - 3 * t2 + 1;
+                let h2 = -2 * t3 + 3 * t2;
+                let h3 = t3 - 2 * t2 + t;
+                let h4 = t3 - t2;
+
+                let x = h1 * x1 + h2 * x4 + h3 * x2 + h4 * x3;
+                let y = h1 * y1 + h2 * y4 + h3 * y2 + h4 * y3;
+                ctx.lineTo(x + 300, 600 - (y + 300));
+            }
+            ctx.stroke();
+        });
+    }
+
+    // Initial blank state
+    saveState();
+</script>
+
+</body>
+</html>
